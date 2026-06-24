@@ -3,11 +3,14 @@ package de.jotoho.cityrp.hallmonitor;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.User;
+import net.dv8tion.jda.api.events.guild.GuildBanEvent;
+import net.dv8tion.jda.api.events.guild.GuildUnbanEvent;
 import net.dv8tion.jda.api.events.guild.member.GuildMemberJoinEvent;
 import net.dv8tion.jda.api.events.guild.member.GuildMemberRemoveEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 
 public class JoinAdapter extends ListenerAdapter {
     final Config config;
@@ -53,6 +56,30 @@ public class JoinAdapter extends ListenerAdapter {
                                 slaveMember.kick().queue();
                             }
                         });
+                    });
+        }
+    }
+
+    @Override
+    public void onGuildBan(final GuildBanEvent event) {
+        if (event.getGuild().getId().equals(config.masterServerID())) {
+            event.getJDA().getGuilds()
+                    .parallelStream()
+                    .filter(guild -> !guild.getId().equals(config.masterServerID()))
+                    .forEach(guild -> {
+                        guild.ban(event.getUser(), 0, TimeUnit.SECONDS).queue();
+                    });
+        }
+    }
+
+    @Override
+    public void onGuildUnban(final GuildUnbanEvent event) {
+        if (event.getGuild().getId().equals(config.masterServerID())) {
+            event.getJDA().getGuilds()
+                    .parallelStream()
+                    .filter(guild -> !guild.getId().equals(config.masterServerID()))
+                    .forEach(guild -> {
+                        guild.unban(event.getUser()).queue();
                     });
         }
     }
