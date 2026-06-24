@@ -34,18 +34,18 @@ public class Main {
 
         api.awaitReady();
 
-        final Guild masterGuild = api.getGuildById(config.masterServerID());
-        if (Objects.nonNull(masterGuild)) {
-            masterGuild.loadMembers().onSuccess(masterMembers -> {
+        final Guild parentGuild = api.getGuildById(config.parentServerID());
+        if (Objects.nonNull(parentGuild)) {
+            parentGuild.loadMembers().onSuccess(parentMembers -> {
                 api.getGuilds()
                         .parallelStream()
-                        .filter(guild -> !Objects.equals(guild, masterGuild))
+                        .filter(guild -> !Objects.equals(guild, parentGuild))
                         .forEach(guild -> {
                             guild.loadMembers(member -> {
-                                final boolean isMasterMember = masterMembers.parallelStream()
+                                final boolean isparentMember = parentMembers.parallelStream()
                                         .map(Member::getUser)
                                         .anyMatch(user -> Objects.equals(user, member.getUser()));
-                                if (!isMasterMember && !member.getUser().isBot()) {
+                                if (!isparentMember && !member.getUser().isBot()) {
                                     member.kick().queue();
                                 }
                             });
@@ -54,7 +54,7 @@ public class Main {
         }
         else {
             // Something is very wrong. Shut down immediately.
-            System.err.println("FATAL: App not in Master Guild. Shutting down JDA...");
+            System.err.println("FATAL: App not in parent Guild. Shutting down JDA...");
             api.shutdown();
         }
     }

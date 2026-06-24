@@ -17,31 +17,31 @@ public class JoinAdapter extends ListenerAdapter {
 
     @Override
     public void onGuildMemberJoin(final GuildMemberJoinEvent event) {
-        if (!event.getGuild().getId().equals(config.masterServerID())) {
+        if (!event.getGuild().getId().equals(config.parentServerID())) {
             final Member newbie = event.getMember();
             final User newbieUser = newbie.getUser();
             if (newbieUser.isBot())
                 return;
-            final Guild masterGuild = event.getJDA().getGuildById(config.masterServerID());
-            if (Objects.nonNull(masterGuild)) {
-                masterGuild.loadMembers().onSuccess(masterMembers -> {
-                    final boolean isMasterMember = masterMembers.parallelStream()
+            final Guild parentGuild = event.getJDA().getGuildById(config.parentServerID());
+            if (Objects.nonNull(parentGuild)) {
+                parentGuild.loadMembers().onSuccess(parentMembers -> {
+                    final boolean isparentMember = parentMembers.parallelStream()
                             .map(Member::getUser)
                             .anyMatch(user -> Objects.equals(user, newbieUser));
-                    if (!isMasterMember) {
+                    if (!isparentMember) {
                         newbie.kick().queue();
                     }
                 });
             }
             else {
-                System.err.println("Join Event: Cannot find Master Guild");
+                System.err.println("Join Event: Cannot find parent Guild");
             }
         }
     }
 
     @Override
     public void onGuildMemberRemove(final GuildMemberRemoveEvent event) {
-        if (event.getGuild().getId().equals(config.masterServerID())) {
+        if (event.getGuild().getId().equals(config.parentServerID())) {
             if (event.getUser().isBot()) {
                 return;
             }
@@ -49,11 +49,11 @@ public class JoinAdapter extends ListenerAdapter {
             final User leavingUser = event.getUser();
             event.getJDA().getGuilds()
                     .parallelStream()
-                    .filter(guild -> !guild.getId().equals(config.masterServerID()))
+                    .filter(guild -> !guild.getId().equals(config.parentServerID()))
                     .forEach(guild -> {
-                        guild.loadMembers(slaveMember -> {
-                            if (slaveMember.getUser().equals(leavingUser)) {
-                                slaveMember.kick().queue();
+                        guild.loadMembers(childMember -> {
+                            if (childMember.getUser().equals(leavingUser)) {
+                                childMember.kick().queue();
                             }
                         });
                     });
@@ -62,10 +62,10 @@ public class JoinAdapter extends ListenerAdapter {
 
     @Override
     public void onGuildBan(final GuildBanEvent event) {
-        if (event.getGuild().getId().equals(config.masterServerID())) {
+        if (event.getGuild().getId().equals(config.parentServerID())) {
             event.getJDA().getGuilds()
                     .parallelStream()
-                    .filter(guild -> !guild.getId().equals(config.masterServerID()))
+                    .filter(guild -> !guild.getId().equals(config.parentServerID()))
                     .forEach(guild -> {
                         guild.ban(event.getUser(), 0, TimeUnit.SECONDS).queue();
                     });
@@ -74,10 +74,10 @@ public class JoinAdapter extends ListenerAdapter {
 
     @Override
     public void onGuildUnban(final GuildUnbanEvent event) {
-        if (event.getGuild().getId().equals(config.masterServerID())) {
+        if (event.getGuild().getId().equals(config.parentServerID())) {
             event.getJDA().getGuilds()
                     .parallelStream()
-                    .filter(guild -> !guild.getId().equals(config.masterServerID()))
+                    .filter(guild -> !guild.getId().equals(config.parentServerID()))
                     .forEach(guild -> {
                         guild.unban(event.getUser()).queue();
                     });

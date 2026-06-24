@@ -1,4 +1,4 @@
 package de.jotoho.cityrp.citybouncer;
 
-public record Config(String masterServerID, String token) {
+public record Config(String parentServerID, String token) {
 }
