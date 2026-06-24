@@ -1,4 +1,4 @@
-package de.jotoho.cityrp.hallmonitor;
+package de.jotoho.cityrp.citybouncer;
 
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;

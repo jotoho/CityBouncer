@@ -1,4 +1,4 @@
-package de.jotoho.cityrp.hallmonitor;
+package de.jotoho.cityrp.citybouncer;
 
 import com.google.gson.Gson;
 import net.dv8tion.jda.api.JDA;

@@ -1,4 +1,4 @@
-package de.jotoho.cityrp.hallmonitor;
+package de.jotoho.cityrp.citybouncer;
 
 public record Config(String masterServerID, String token) {
 }
