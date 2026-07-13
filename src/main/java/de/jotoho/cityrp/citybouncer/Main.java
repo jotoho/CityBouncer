@@ -24,38 +24,12 @@ public class Main {
                 Files.readString(Path.of(args[0]), StandardCharsets.UTF_8),
                 Config.class
         );
-        final JDA api = JDABuilder.createDefault(config.token())
-                .enableIntents(GatewayIntent.GUILD_MEMBERS)
+        final JDA api = JDABuilder.createLight(config.token())
+                .enableIntents(GatewayIntent.GUILD_MEMBERS, GatewayIntent.GUILD_MODERATION)
                 .addEventListeners(new JoinAdapter(config))
                 .setAutoReconnect(true)
                 .setCallbackPool(Executors.newVirtualThreadPerTaskExecutor(), true)
                 .setEventPool(Executors.newVirtualThreadPerTaskExecutor(), true)
                 .build();
-
-        api.awaitReady();
-
-        final Guild parentGuild = api.getGuildById(config.parentServerID());
-        if (Objects.nonNull(parentGuild)) {
-            parentGuild.loadMembers().onSuccess(parentMembers -> {
-                api.getGuilds()
-                        .parallelStream()
-                        .filter(guild -> !Objects.equals(guild, parentGuild))
-                        .forEach(guild -> {
-                            guild.loadMembers(member -> {
-                                final boolean isparentMember = parentMembers.parallelStream()
-                                        .map(Member::getUser)
-                                        .anyMatch(user -> Objects.equals(user, member.getUser()));
-                                if (!isparentMember && !member.getUser().isBot()) {
-                                    member.kick().queue();
-                                }
-                            });
-                        });
-            });
-        }
-        else {
-            // Something is very wrong. Shut down immediately.
-            System.err.println("FATAL: App not in parent Guild. Shutting down JDA...");
-            api.shutdown();
-        }
     }
 }
