@@ -41,7 +41,8 @@ public class JoinAdapter extends ListenerAdapter {
                         newbieUser.openPrivateChannel()
                                 .onSuccess(dmChannel -> {
                                     dmChannel.sendMessage("You've been automatically kicked from " + event.getGuild().getName() + " because all members also need to be members of the main CityRP server.")
-                                            .queue((_) -> newbie.kick().queue(), (_) -> newbie.kick().queue());
+                                            .queue((_) -> newbie.kick().reason("user not in main CityRP server").queue(),
+                                                    (_) -> newbie.kick().reason("user not in main CityRP server").queue());
                                 }).queue();
                         newbie.kick().queue();
                     }
@@ -74,7 +75,8 @@ public class JoinAdapter extends ListenerAdapter {
                                 childUser.openPrivateChannel()
                                         .onSuccess(dmChannel -> {
                                             dmChannel.sendMessage("You've been automatically kicked from " + guild.getName() + " because all members also need to be members of the main CityRP server.")
-                                                    .queue((_) -> childMember.kick().queue(), (_) -> childMember.kick().queue());
+                                                    .queue((_) -> childMember.kick().reason("user not in main CityRP server").queue(),
+                                                            (_) -> childMember.kick().reason("user not in main CityRP server").queue());
                                         }).queue();
 
                             }
@@ -91,7 +93,7 @@ public class JoinAdapter extends ListenerAdapter {
                     .filter(guild -> !guild.getId().equals(config.parentServerID()))
                     .forEach(guild -> {
                         logger.log(System.Logger.Level.INFO, "Banning " + event.getUser().getAsTag() + " from guild " + guild.getName());
-                        guild.ban(event.getUser(), 0, TimeUnit.SECONDS).queue();
+                        guild.ban(event.getUser(), 0, TimeUnit.SECONDS).reason("Forwarded from main CityRP server").queue();
                     });
         }
     }
@@ -104,7 +106,7 @@ public class JoinAdapter extends ListenerAdapter {
                     .filter(guild -> !guild.getId().equals(config.parentServerID()))
                     .forEach(guild -> {
                         logger.log(System.Logger.Level.INFO, "Unbanning " + event.getUser().getAsTag() + " from guild " + guild.getName());
-                        guild.unban(event.getUser()).queue();
+                        guild.unban(event.getUser()).reason("Forwarded from main CityRP server").queue();
                     });
         }
     }
@@ -139,7 +141,8 @@ public class JoinAdapter extends ListenerAdapter {
             trespasser.openPrivateChannel()
                     .onSuccess(dmChannel -> {
                         dmChannel.sendMessage("You've been automatically kicked from " + childGuild.getName() + " because all members also need to be members of the main CityRP server.")
-                                .queue((_) -> childGuild.kick(trespasser).queue(), (_) -> childGuild.kick(trespasser).queue());
+                                .queue((_) -> childGuild.kick(trespasser).reason("user not in main CityRP server").queue(),
+                                        (_) -> childGuild.kick(trespasser).reason("user not in main CityRP server").queue());
                     }).queue();
         }
     }
