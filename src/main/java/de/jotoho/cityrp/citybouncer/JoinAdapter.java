@@ -38,6 +38,11 @@ public class JoinAdapter extends ListenerAdapter {
                             .anyMatch(user -> Objects.equals(user, newbieUser));
                     if (!isParentMember) {
                         logger.log(System.Logger.Level.INFO, "Kicking stranger newbie " + newbieUser.getAsTag() + " from Guild " + event.getGuild().getName());
+                        newbieUser.openPrivateChannel()
+                                .onSuccess(dmChannel -> {
+                                    dmChannel.sendMessage("You've been automatically kicked from " + event.getGuild().getName() + " because all members also need to be members of the main CityRP server.")
+                                            .queue((_) -> newbie.kick().queue(), (_) -> newbie.kick().queue());
+                                }).queue();
                         newbie.kick().queue();
                     }
                 });
@@ -66,7 +71,12 @@ public class JoinAdapter extends ListenerAdapter {
                                 if (childUser.isBot() || childUser.isSystem() || event.getJDA().getSelfUser().equals(childUser))
                                     return;
                                 logger.log(System.Logger.Level.INFO, "Kicking stranger newbie " + childUser.getAsTag() + " from Guild " + guild.getName());
-                                childMember.kick().queue();
+                                childUser.openPrivateChannel()
+                                        .onSuccess(dmChannel -> {
+                                            dmChannel.sendMessage("You've been automatically kicked from " + guild.getName() + " because all members also need to be members of the main CityRP server.")
+                                                    .queue((_) -> childMember.kick().queue(), (_) -> childMember.kick().queue());
+                                        }).queue();
+
                             }
                         });
                     });
@@ -124,7 +134,13 @@ public class JoinAdapter extends ListenerAdapter {
             if (trespasser.isBot() || trespasser.isSystem() || api.getSelfUser().equals(trespasser))
                 continue;
             logger.log(System.Logger.Level.INFO, "Kicking user " + trespasser.getGlobalName() + " from guild " + childGuild.getName());
+
             childGuild.kick(trespasser).queue();
+            trespasser.openPrivateChannel()
+                    .onSuccess(dmChannel -> {
+                        dmChannel.sendMessage("You've been automatically kicked from " + childGuild.getName() + " because all members also need to be members of the main CityRP server.")
+                                .queue((_) -> childGuild.kick(trespasser).queue(), (_) -> childGuild.kick(trespasser).queue());
+                    }).queue();
         }
     }
 
