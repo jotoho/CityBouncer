@@ -3,7 +3,7 @@ package de.jotoho.cityrp.citybouncer;
 import java.util.Map;
 import java.util.Objects;
 
-public record Config(String parentServerID, String token, Map<String, ServerConfig> servers) {
+public record Config(String parentServerID, String token, Map<String, ServerConfig> servers, boolean isArmed) {
     public static final ServerConfig DEFAULT = new ServerConfig(
             false,
             false,
