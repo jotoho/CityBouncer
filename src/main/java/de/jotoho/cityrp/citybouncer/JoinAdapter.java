@@ -10,43 +10,48 @@ import net.dv8tion.jda.api.events.guild.GuildReadyEvent;
 import net.dv8tion.jda.api.events.guild.GuildUnbanEvent;
 import net.dv8tion.jda.api.events.guild.member.GuildMemberJoinEvent;
 import net.dv8tion.jda.api.events.guild.member.GuildMemberRemoveEvent;
+import net.dv8tion.jda.api.events.session.SessionRecreateEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.jetbrains.annotations.NotNull;
 
 import java.time.Duration;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 
 public class JoinAdapter extends ListenerAdapter {
-    final System.Logger logger = System.getLogger(JoinAdapter.class.getCanonicalName());
-    final Config config;
+    private final System.Logger logger = System.getLogger(JoinAdapter.class.getCanonicalName());
+    private final Config config;
+    private boolean isParentMembersLoaded = false;
 
     @Override
-    public void onGuildMemberJoin(final GuildMemberJoinEvent event) {
+    public void onGuildMemberJoin(final @NotNull GuildMemberJoinEvent event) {
+        if (!this.isParentMembersLoaded)
+            // can't process it rn
+            return;
+
         if (!event.getGuild().getId().equals(config.parentServerID())) {
             final Member newbie = event.getMember();
             final User newbieUser = newbie.getUser();
-            if (newbieUser.isBot() || newbieUser.isSystem() || event.getJDA().getSelfUser().equals(newbieUser))
+            if (newbieUser.isBot() || newbieUser.isSystem() || event.getJDA().getSelfUser().equals(newbieUser)) {
                 return;
+            }
+            if (config.servers().getOrDefault(event.getGuild().getId(), Config.DEFAULT).disableKickOnJoin()) {
+                return;
+            }
             final Guild parentGuild = event.getJDA().getGuildById(config.parentServerID());
             if (Objects.nonNull(parentGuild)) {
-                parentGuild.loadMembers().onSuccess(parentMembers -> {
-                    final boolean isParentMember = parentMembers.parallelStream()
-                            .map(Member::getUser)
-                            .anyMatch(user -> Objects.equals(user, newbieUser));
-                    if (!isParentMember) {
-                        logger.log(System.Logger.Level.INFO, "Kicking stranger newbie " + newbieUser.getAsTag() + " from Guild " + event.getGuild().getName());
-                        newbieUser.openPrivateChannel()
-                                .onSuccess(dmChannel -> {
-                                    dmChannel.sendMessage("You've been automatically kicked from " + event.getGuild().getName() + " because all members also need to be members of the main CityRP server.")
-                                            .queue((_) -> newbie.kick().reason("user not in main CityRP server").queue(),
-                                                    (_) -> newbie.kick().reason("user not in main CityRP server").queue());
-                                }).queue();
-                        newbie.kick().queue();
-                    }
-                });
+                if (!parentGuild.isMember(newbieUser)) {
+                    logger.log(System.Logger.Level.INFO, "Kicking stranger newbie " + newbieUser.getAsTag() + " from Guild " + event.getGuild().getName());
+                    newbieUser.openPrivateChannel()
+                            .onSuccess(dmChannel -> {
+                                dmChannel.sendMessage("You've been automatically kicked from " + event.getGuild().getName() + " because all members also need to be members of the main CityRP server.")
+                                        .queue((_) -> newbie.kick().reason("user not in main CityRP server").queue(),
+                                                (_) -> newbie.kick().reason("user not in main CityRP server").queue());
+                            }).queue();
+                    newbie.kick().queue();
+                }
             }
             else {
                 System.err.println("Join Event: Cannot find parent Guild");
@@ -55,7 +60,11 @@ public class JoinAdapter extends ListenerAdapter {
     }
 
     @Override
-    public void onGuildMemberRemove(final GuildMemberRemoveEvent event) {
+    public void onGuildMemberRemove(final @NotNull GuildMemberRemoveEvent event) {
+        if (!this.isParentMembersLoaded)
+            // can't process it rn
+            return;
+
         if (event.getGuild().getId().equals(config.parentServerID())) {
             if (event.getUser().isBot()) {
                 return;
@@ -66,7 +75,11 @@ public class JoinAdapter extends ListenerAdapter {
                     .parallelStream()
                     .filter(guild -> !guild.getId().equals(config.parentServerID()))
                     .forEach(guild -> {
-                        guild.loadMembers(childMember -> {
+                        if (config.servers().getOrDefault(guild.getId(), Config.DEFAULT).disableKickOnLeave()) {
+                            return;
+                        }
+
+                        guild.getMembers().forEach(childMember -> {
                             final var childUser = childMember.getUser();
                             if (childUser.equals(leavingUser)) {
                                 if (childUser.isBot() || childUser.isSystem() || event.getJDA().getSelfUser().equals(childUser))
@@ -92,6 +105,9 @@ public class JoinAdapter extends ListenerAdapter {
                     .parallelStream()
                     .filter(guild -> !guild.getId().equals(config.parentServerID()))
                     .forEach(guild -> {
+                        if (config.getServerConfig(guild.getId()).disableBanForwarding()) {
+                            return;
+                        }
                         logger.log(System.Logger.Level.INFO, "Banning " + event.getUser().getAsTag() + " from guild " + guild.getName());
                         guild.ban(event.getUser(), 0, TimeUnit.SECONDS).reason("Forwarded from main CityRP server").queue();
                     });
@@ -105,6 +121,9 @@ public class JoinAdapter extends ListenerAdapter {
                     .parallelStream()
                     .filter(guild -> !guild.getId().equals(config.parentServerID()))
                     .forEach(guild -> {
+                        if (config.getServerConfig(guild.getId()).disableBanForwarding()) {
+                            return;
+                        }
                         logger.log(System.Logger.Level.INFO, "Unbanning " + event.getUser().getAsTag() + " from guild " + guild.getName());
                         guild.unban(event.getUser()).reason("Forwarded from main CityRP server").queue();
                     });
@@ -114,24 +133,40 @@ public class JoinAdapter extends ListenerAdapter {
     private void processGuild(final JDA api, final Guild childGuild) {
         logger.log(System.Logger.Level.INFO, "Processing ready guild " + childGuild.getName());
         final Guild parentGuild = api.getGuildById(config.parentServerID());
+        final var childGuildMembers = childGuild.loadMembers().setTimeout(Duration.ofMinutes(5));
         if (parentGuild == null) {
             logger.log(System.Logger.Level.WARNING, "parentGuild not found during ready event processing");
             return;
         }
         else if (Objects.equals(childGuild, parentGuild)) {
+            childGuildMembers.onSuccess(_ -> isParentMembersLoaded = true);
+            return;
+        }
+        else if (config.getServerConfig(childGuild.getId()).disableKickExisting()) {
             return;
         }
 
-        final List<User> childGuildMembers = childGuild.loadMembers().setTimeout(Duration.ofMinutes(10)).get().stream().map(Member::getUser).toList();
-        final List<User> matchingInParent = parentGuild.findMembers(member -> childGuildMembers.contains(member.getUser()))
-                .setTimeout(Duration.ofMinutes(10))
-                .get()
+        final List<User> childGuildUsers = childGuildMembers.get()
                 .stream()
                 .map(Member::getUser)
                 .toList();
+        if (!this.isParentMembersLoaded) {
+            try {
+                Thread.sleep(Duration.ofMinutes(1));
+            } catch (final InterruptedException _) {
 
-        final List<User> trespassers = new LinkedList<>(childGuildMembers);
-        trespassers.removeAll(matchingInParent);
+            }
+
+            if (!this.isParentMembersLoaded) {
+                logger.log(System.Logger.Level.WARNING, "waiting for parent guild member list to be ready took too long");
+                return;
+            }
+        }
+        final List<User> trespassers = parentGuild.getMembers()
+                .stream()
+                .map(Member::getUser)
+                .filter(Predicate.not(childGuildUsers::contains))
+                .toList();
         for (final var trespasser : trespassers) {
             if (trespasser.isBot() || trespasser.isSystem() || api.getSelfUser().equals(trespasser))
                 continue;
@@ -157,6 +192,12 @@ public class JoinAdapter extends ListenerAdapter {
     public void onGuildJoin(@NotNull GuildJoinEvent event) {
         super.onGuildJoin(event);
         this.processGuild(event.getJDA(), event.getGuild());
+    }
+
+    @Override
+    public void onSessionRecreate(@NotNull SessionRecreateEvent event) {
+        super.onSessionRecreate(event);
+        this.isParentMembersLoaded = false;
     }
 
     public JoinAdapter(final Config config) {

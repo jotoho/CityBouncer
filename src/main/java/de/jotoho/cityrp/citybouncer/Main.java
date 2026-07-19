@@ -6,6 +6,7 @@ import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.requests.GatewayIntent;
+import net.dv8tion.jda.api.utils.MemberCachePolicy;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -28,6 +29,7 @@ public class Main {
                 .enableIntents(GatewayIntent.GUILD_MEMBERS, GatewayIntent.GUILD_MODERATION)
                 .addEventListeners(new JoinAdapter(config))
                 .setAutoReconnect(true)
+                .setMemberCachePolicy(MemberCachePolicy.ALL)
                 .setCallbackPool(Executors.newVirtualThreadPerTaskExecutor(), true)
                 .setEventPool(Executors.newVirtualThreadPerTaskExecutor(), true)
                 .build();
