@@ -3,15 +3,6 @@
 
 version: 2
 updates:
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-      timezone: "Europe/Berlin"
-    assignees:
-      - "jotoho"
-    reviewers:
-      - "jotoho"
   - package-ecosystem: "maven"
     directory: "/"
     schedule:
