@@ -6,6 +6,7 @@ import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.SelfMember;
 import net.dv8tion.jda.api.entities.User;
+import net.dv8tion.jda.api.entities.channel.concrete.PrivateChannel;
 import net.dv8tion.jda.api.events.guild.GuildBanEvent;
 import net.dv8tion.jda.api.events.guild.GuildJoinEvent;
 import net.dv8tion.jda.api.events.guild.GuildReadyEvent;
@@ -14,6 +15,7 @@ import net.dv8tion.jda.api.events.guild.member.GuildMemberJoinEvent;
 import net.dv8tion.jda.api.events.guild.member.GuildMemberRemoveEvent;
 import net.dv8tion.jda.api.events.session.ReadyEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
+import net.dv8tion.jda.api.requests.RestAction;
 import net.dv8tion.jda.api.utils.concurrent.Task;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -24,6 +26,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 public class JoinAdapter extends ListenerAdapter {
@@ -32,8 +35,8 @@ public class JoinAdapter extends ListenerAdapter {
     private WeakReference<Task<?>> parentGuildLoadTask = new WeakReference<>(null);
     private JDA api = null;
     private final List<Predicate<User>> excludedUserTypes = List.of(
-            user -> user.isBot(),
-            user -> user.isSystem(),
+            User::isBot,
+            User::isSystem,
             user -> Objects.isNull(api) || api.getSelfUser().equals(user)
     );
 
@@ -60,9 +63,12 @@ public class JoinAdapter extends ListenerAdapter {
             else {
                 member.getUser().openPrivateChannel()
                         .onSuccess(dmChannel -> {
+                            final Consumer<Object> postMessageAction = _ -> {
+                                member.kick().reason(reason).queue();
+                                dmChannel.delete().queue();
+                            };
                             dmChannel.sendMessage(dmReason)
-                                    .queue(_ -> member.kick().reason(reason).queue(),
-                                            _ -> member.kick().reason(reason).queue());
+                                    .queue(postMessageAction, postMessageAction);
                         }).queue();
             }
         }
@@ -310,6 +316,11 @@ public class JoinAdapter extends ListenerAdapter {
     public void onReady(@NotNull ReadyEvent event) {
         super.onReady(event);
         this.api = event.getJDA();
+        this.api.getPrivateChannels()
+                .stream()
+                .peek(dmChannel -> logger.log(INFO, "Closing orphaned DM channel: " + dmChannel.getName()))
+                .map(PrivateChannel::delete)
+                .forEach(RestAction::queue);
     }
 
     public JoinAdapter(final Config config) {
