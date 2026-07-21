@@ -236,9 +236,31 @@ public class JoinAdapter extends ListenerAdapter {
         }
     }
 
-    private void processGuild(final JDA api, final Guild childGuild) {
+    private @Nullable Guild getParentGuild(final @NotNull JDA api) {
+        Objects.requireNonNull(api);
+        final Duration readyWaitTime = Duration.ofSeconds(30);
+        final Duration waitTimeStep = readyWaitTime.dividedBy(10);
+        for (Duration remainingWaitTime = readyWaitTime;
+             remainingWaitTime.isPositive();
+             remainingWaitTime = remainingWaitTime.minus(waitTimeStep)) {
+            try {
+                final Guild parentGuild = api.getGuildById(config.parentServerID());
+                if (Objects.nonNull(parentGuild)) {
+                    return parentGuild;
+                }
+                Thread.sleep(waitTimeStep);
+            } catch (final InterruptedException _) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    private void processGuild(final @NotNull JDA api, final @NotNull Guild childGuild) {
+        Objects.requireNonNull(api);
+        Objects.requireNonNull(childGuild);
         logger.log(System.Logger.Level.INFO, "Processing ready guild " + childGuild.getName());
-        final Guild parentGuild = api.getGuildById(config.parentServerID());
+        final Guild parentGuild = getParentGuild(api);
         final var childGuildMembersTask = childGuild.loadMembers().setTimeout(Duration.ofMinutes(1));
         if (parentGuild == null) {
             logger.log(WARNING, "parentGuild not found during ready event processing");
