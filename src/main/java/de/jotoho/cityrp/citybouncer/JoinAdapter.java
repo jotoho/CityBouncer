@@ -144,7 +144,6 @@ public class JoinAdapter extends ListenerAdapter {
                     return;
                 }
                 if (!parentGuild.isMember(newbieUser)) {
-                    logger.log(System.Logger.Level.INFO, "Kicking stranger newbie " + newbieUser.getAsTag() + " from Guild " + event.getGuild().getName());
                     kickUser(
                         newbie,
                         "user not in parent guild",
@@ -184,7 +183,6 @@ public class JoinAdapter extends ListenerAdapter {
                             if (childUser.equals(leavingUser)) {
                                 if (childUser.isBot() || childUser.isSystem() || event.getJDA().getSelfUser().equals(childUser))
                                     return;
-                                logger.log(System.Logger.Level.INFO, "Kicking " + childUser.getAsTag() + " from Guild " + guild.getName());
                                 kickUser(
                                     childMember,
                                     "user left the parent guild",
